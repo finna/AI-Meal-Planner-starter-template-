@@ -1,103 +1,167 @@
-import Image from "next/image";
+'use client';
+
+import { useState } from 'react';
+import { Recipe, DietaryPreference, CookingTime, MealType } from '@/types/recipe';
+import IngredientInput from '@/components/IngredientInput';
+import PreferenceSelector from '@/components/PreferenceSelector';
+import RecipeCard from '@/components/RecipeCard';
+import SavedRecipesSidebar from '@/components/SavedRecipesSidebar';
+import { ChefHatIcon, Loader2Icon, SparklesIcon } from 'lucide-react';
+
+interface Preferences {
+  dietary: DietaryPreference[];
+  cookingTime?: CookingTime;
+  mealType?: MealType;
+  servings: number;
+}
 
 export default function Home() {
-  return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const [ingredients, setIngredients] = useState<string[]>([]);
+  const [preferences, setPreferences] = useState<Preferences>({
+    dietary: [],
+    servings: 4,
+  });
+  const [currentRecipe, setCurrentRecipe] = useState<Recipe | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  const handleGenerateRecipe = async () => {
+    if (ingredients.length === 0) {
+      setError('Please add at least one ingredient');
+      return;
+    }
+
+    setIsGenerating(true);
+    setError(null);
+
+    try {
+      const response = await fetch('/api/generate-recipe', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ingredients,
+          preferences: {
+            dietary: preferences.dietary,
+            mealType: preferences.mealType,
+            cookingTime: preferences.cookingTime,
+            servings: preferences.servings,
+          },
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to generate recipe');
+      }
+
+      setCurrentRecipe(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleSelectSavedRecipe = (recipe: Recipe) => {
+    setCurrentRecipe(recipe);
+    // Scroll to top to show the recipe
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  return (
+    <div className="flex min-h-screen bg-background">
+      {/* Main Content */}
+      <main className="flex-1 overflow-y-auto">
+        <div className="max-w-4xl mx-auto p-4 sm:p-6 lg:p-8">
+          {/* Header */}
+          <div className="text-center mb-8 sm:mb-12">
+            <div className="flex items-center justify-center gap-3 mb-4">
+              <ChefHatIcon className="w-10 h-10 sm:w-12 sm:h-12 text-lime" />
+              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-text-dark">
+                AI Meal Planner
+              </h1>
+            </div>
+            <p className="text-text-medium text-sm sm:text-base max-w-2xl mx-auto">
+              Transform your ingredients into delicious recipes. Enter what you have in
+              your pantry, and let AI create the perfect meal for you.
+            </p>
+          </div>
+
+          {/* Recipe Generator Form */}
+          <div className="bg-white rounded-2xl shadow-sm border-2 border-cream-dark p-6 sm:p-8 mb-8">
+            <div className="space-y-6">
+              <IngredientInput
+                ingredients={ingredients}
+                onChange={setIngredients}
+              />
+
+              <div className="border-t-2 border-cream-dark pt-6">
+                <PreferenceSelector
+                  preferences={preferences}
+                  onChange={setPreferences}
+                />
+              </div>
+
+              {error && (
+                <div className="p-4 bg-red-50 border-2 border-red-200 rounded-xl text-red-700 text-sm">
+                  {error}
+                </div>
+              )}
+
+              <button
+                onClick={handleGenerateRecipe}
+                disabled={isGenerating || ingredients.length === 0}
+                className="w-full bg-lime hover:bg-lime-light disabled:bg-cream-dark disabled:cursor-not-allowed text-text-dark font-bold py-4 px-6 rounded-xl transition-all flex items-center justify-center gap-3 text-lg shadow-sm hover:shadow-md"
+              >
+                {isGenerating ? (
+                  <>
+                    <Loader2Icon className="w-6 h-6 animate-spin" />
+                    Generating Your Recipe...
+                  </>
+                ) : (
+                  <>
+                    <SparklesIcon className="w-6 h-6" />
+                    Generate Recipe
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* Loading State */}
+          {isGenerating && (
+            <div className="text-center py-12">
+              <Loader2Icon className="w-12 h-12 animate-spin text-lime mx-auto mb-4" />
+              <p className="text-text-medium">Creating your perfect recipe...</p>
+            </div>
+          )}
+
+          {/* Recipe Display */}
+          {currentRecipe && !isGenerating && (
+            <div className="animate-fadeIn">
+              <RecipeCard recipe={currentRecipe} />
+            </div>
+          )}
+
+          {/* Empty State */}
+          {!currentRecipe && !isGenerating && ingredients.length > 0 && (
+            <div className="text-center py-12 text-text-medium">
+              <SparklesIcon className="w-12 h-12 mx-auto mb-3 opacity-30" />
+              <p>Ready to create something delicious?</p>
+              <p className="text-sm mt-1">Click Generate Recipe to get started!</p>
+            </div>
+          )}
         </div>
       </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+
+      {/* Sidebar */}
+      <SavedRecipesSidebar
+        onSelectRecipe={handleSelectSavedRecipe}
+        currentRecipeId={currentRecipe?.id}
+      />
     </div>
   );
 }
