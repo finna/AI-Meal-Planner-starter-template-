@@ -1,3 +1,8 @@
+## 1-Click Deploy
+[![Deploy with Vercel](https://vercel.com/button)](
+  https://vercel.com/new/clone?repository-url=https://github.com/finna/AI-Meal-Planner-starter-template-
+)
+
 # AI Meal Planner
 
 A beautiful, AI-powered meal planning application that transforms your pantry ingredients into delicious recipes. Built with Next.js, TypeScript, and the OpenAI GPT-4 API.
